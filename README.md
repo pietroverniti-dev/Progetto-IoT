@@ -1,3 +1,3 @@
 # Progetto-IoT
 
-<img src="images\Interfaccia.png" alt="Descrizione" style="float: right; width: 300px; height: auto; margin-left: 10px;">
+<img src="Images\Interfaccia.png" alt="Descrizione" style="float: right; width: 300px; height: auto; margin-left: 10px;">
