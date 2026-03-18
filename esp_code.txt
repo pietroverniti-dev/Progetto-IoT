@@ -1,0 +1,241 @@
+#include <Arduino.h>
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <MD_MAX72xx.h>
+
+#include <WiFi.h>
+#include <PubSubClient.h>
+
+// ---------------------------------------------------------
+// WIFI + MQTT
+// ---------------------------------------------------------
+const char* ssid = "TPSITquinteBis";
+const char* password = "quintaemme";
+
+const char* mqtt_server = "192.168.114.187";
+const int   mqtt_port   = 1883;
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+const char* topic_distanza = "radar/distanza";
+
+// ---------------------------------------------------------
+// OLED
+// ---------------------------------------------------------
+#define SDA 21
+#define SCL 22
+#define OLED_RST -1
+#define ROW 64
+#define COL 128
+
+Adafruit_SSD1306 display(COL, ROW, &Wire, OLED_RST);
+
+// ---------------------------------------------------------
+// MATRICE LED
+// ---------------------------------------------------------
+#define HARDWARE_TYPE MD_MAX72XX::FC16_HW
+#define MAX_DEVICES 1
+#define DATA_PIN 23
+#define CS_PIN   5
+#define CLK_PIN  18
+MD_MAX72XX mx = MD_MAX72XX(HARDWARE_TYPE, DATA_PIN, CLK_PIN, CS_PIN, MAX_DEVICES);
+
+// ---------------------------------------------------------
+// SENSORE ULTRASUONI + BUZZER
+// ---------------------------------------------------------
+const int TRIG_PIN = 4;
+const int ECHO_PIN = 2;
+const int BUZZER_PIN = 25;
+
+unsigned long tempoBeep = 0;
+bool notaAlta = false;
+
+// ---------------------------------------------------------
+// MQTT RECONNECT
+// ---------------------------------------------------------
+void reconnectMQTT() {
+  while (!client.connected()) {
+    Serial.print("Connessione al broker MQTT... ");
+
+    if (client.connect("ESP32_Radar")) {
+      Serial.println("CONNESSO!");
+    } else {
+      Serial.print("Errore, rc=");
+      Serial.print(client.state());
+      Serial.println(" — nuovo tentativo tra 2 secondi");
+      delay(2000);
+    }
+  }
+}
+
+// ---------------------------------------------------------
+// OLED UPDATE
+// ---------------------------------------------------------
+void aggiornaOLED(int dist) {
+  display.clearDisplay();
+
+  display.setTextSize(1);
+  display.setCursor(0,0);
+  display.println("RADAR STATUS:");
+
+  display.setTextSize(2);
+  display.setCursor(0, 20);
+  if(dist > 100) display.print("FUORI");
+  else { display.print(dist); display.print(" cm"); }
+
+  int barWidth = map(constrain(dist, 2, 50), 2, 50, 120, 0);
+  display.drawRect(0, 45, 122, 10, SSD1306_WHITE);
+  display.fillRect(1, 46, barWidth, 8, SSD1306_WHITE);
+
+  display.display();
+}
+
+// ---------------------------------------------------------
+// MATRICE LED
+// ---------------------------------------------------------
+void disegnaMatrice(int livello, bool panico) {
+  mx.clear();
+  if (livello <= 0) return;
+
+  int sR = panico ? random(-1, 2) : 0;
+  int sC = panico ? random(-1, 2) : 0;
+
+  int start = 4 - (livello / 2 + (livello % 2));
+  int end = 7 - start;
+
+  for (int r = start; r <= end; r++) {
+    for (int c = start; c <= end; c++) {
+      mx.setPoint(r + sR, c + sC, true);
+    }
+  }
+}
+
+// ---------------------------------------------------------
+// SETUP
+// ---------------------------------------------------------
+void setup() {
+  Serial.begin(9600);
+
+  // I2C per OLED
+  Wire.begin(SDA, SCL);
+
+  // OLED
+  while (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println("Display non trovato");
+    delay(500);
+  }
+  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE);
+  display.setTextSize(1);
+  display.setCursor(0,0);
+
+  // ---------------------------------------------------------
+  // CONNESSIONE WIFI — COME IL TUO ESEMPIO
+  // ---------------------------------------------------------
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+
+  display.print("Connessione");
+  Serial.print("Connessione");
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+    display.print(".");
+    display.display();
+  }
+
+  Serial.println("\nConnesso!");
+  display.clearDisplay();
+  display.setCursor(0,0);
+  display.println("Connesso!");
+  display.display();
+
+  String ip = WiFi.localIP().toString();
+  String ssidConnected = WiFi.SSID();
+
+  Serial.println("SSID: " + ssidConnected);
+  Serial.println("IP: " + ip);
+  display.println("SSID: " + ssidConnected);
+  display.println("IP: " + ip);
+  display.display();
+
+  // MQTT
+  client.setServer(mqtt_server, mqtt_port);
+
+  // Sensori
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+
+  // Matrice
+  mx.begin();
+  mx.control(MD_MAX72XX::INTENSITY, 1);
+  mx.clear();
+}
+
+// ---------------------------------------------------------
+// LOOP
+// ---------------------------------------------------------
+void loop() {
+
+  // MQTT
+  if (!client.connected()) {
+    reconnectMQTT();
+  }
+  client.loop();
+
+  // ---------------------------------------------------------
+  // MISURA DISTANZA
+  // ---------------------------------------------------------
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+
+  long durata = pulseIn(ECHO_PIN, HIGH);
+  int distanza = (durata > 0) ? durata * 0.034 / 2 : 999;
+
+  // ---------------------------------------------------------
+  // PUBBLICAZIONE MQTT
+  // ---------------------------------------------------------
+  char msg[10];
+  sprintf(msg, "%d", distanza);
+  client.publish(topic_distanza, msg);
+
+  // OLED
+  aggiornaOLED(distanza);
+
+  // ---------------------------------------------------------
+  // LOGICA RADAR
+  // ---------------------------------------------------------
+  if (distanza > 50) {
+    disegnaMatrice(0, false);
+    noTone(BUZZER_PIN);
+  }
+  else if (distanza < 8) {
+    disegnaMatrice(8, true);
+
+    if (millis() - tempoBeep > 100) {
+      notaAlta = !notaAlta;
+      tone(BUZZER_PIN, notaAlta ? 1500 : 900);
+      tempoBeep = millis();
+    }
+  }
+  else {
+    int liv = map(distanza, 50, 8, 1, 7);
+    disegnaMatrice(liv, false);
+
+    int p = map(distanza, 8, 50, 50, 500);
+    if (millis() - tempoBeep > p) {
+      tone(BUZZER_PIN, 1000, 20);
+      tempoBeep = millis();
+    }
+  }
+
+  delay(50);
+}

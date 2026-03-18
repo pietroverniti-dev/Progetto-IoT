@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <title>Monitor Prossimità Opera</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:       #f5f0e8;
+      --gold:     #9a7b3c;
+      --gold-l:   #c9a84c;
+      --verde:    #2d7a4f;
+      --gialla:   #b8860b;
+      --rossa:    #8b1a1a;
+      --verde-l:  #3ddc84;
+      --gialla-l: #f5c518;
+      --rossa-l:  #e8403a;
+      --ink:      #1a1814;
+      --muted:    #7a7060;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      background-image:
+        repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0,0,0,0.03) 40px),
+        repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0,0,0,0.03) 40px);
+      font-family: 'Courier Prime', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 30px 20px;
+      color: var(--ink);
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    header::after {
+      content: '';
+      display: block;
+      width: 80px; height: 1px;
+      background: var(--gold);
+      margin: 10px auto 0;
+      opacity: 0.6;
+    }
+    header h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-size: 1.05rem;
+      letter-spacing: 0.38em;
+      text-transform: uppercase;
+      opacity: 0.75;
+    }
+    header p {
+      font-size: 0.58rem;
+      letter-spacing: 0.22em;
+      color: var(--muted);
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+
+    .layout {
+      display: flex;
+      gap: 28px;
+      align-items: flex-start;
+    }
+
+    #scena {
+      display: block;
+      border: 1px solid rgba(154,123,60,0.25);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.06), 0 8px 32px rgba(0,0,0,0.10);
+    }
+
+    /* ── SIDE PANEL ── */
+    .side {
+      width: 220px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding-top: 4px;
+    }
+
+    .card {
+      border: 1px solid rgba(154,123,60,0.3);
+      background: #fff;
+      padding: 14px 16px;
+      position: relative;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 2px;
+      background: var(--gold);
+      opacity: 0.5;
+    }
+
+    .card-label {
+      font-size: 0.5rem;
+      letter-spacing: 0.28em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 7px;
+    }
+
+    .fascia-display {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.8rem;
+      font-weight: 300;
+      letter-spacing: 0.04em;
+      transition: color 0.4s;
+      line-height: 1;
+    }
+    .fascia-display.VERDE  { color: var(--verde); }
+    .fascia-display.GIALLA { color: var(--gialla); }
+    .fascia-display.ROSSA  { color: var(--rossa); }
+
+    .fascia-sub {
+      font-size: 0.58rem;
+      color: var(--muted);
+      margin-top: 5px;
+      font-style: italic;
+      font-family: 'Cormorant Garamond', serif;
+    }
+
+    /* distanza numerica */
+    .dist-big {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 2.4rem;
+      font-weight: 300;
+      line-height: 1;
+      transition: color 0.4s;
+      letter-spacing: -0.01em;
+    }
+    .dist-big.VERDE  { color: var(--verde); }
+    .dist-big.GIALLA { color: var(--gialla); }
+    .dist-big.ROSSA  { color: var(--rossa); }
+    .dist-unit {
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    /* gauge bar */
+    .gauge-wrap {
+      margin-top: 10px;
+      height: 6px;
+      background: #eee;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .gauge-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s, background 0.4s;
+    }
+
+    .zone-list { display: flex; flex-direction: column; gap: 8px; }
+    .zone-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.56rem;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    .zone-stripe {
+      width: 28px; height: 8px;
+      border-radius: 1px;
+      flex-shrink: 0;
+    }
+    .zone-stripe.v { background: rgba(61,220,132,0.55); border: 1px solid var(--verde); }
+    .zone-stripe.g { background: rgba(245,197,24,0.55); border: 1px solid var(--gialla); }
+    .zone-stripe.r { background: rgba(232,64,58,0.45);  border: 1px solid var(--rossa); }
+
+    .storico-wrap {
+      border: 1px solid rgba(154,123,60,0.3);
+      background: #fff;
+      padding: 12px 14px;
+    }
+    .storico-bars {
+      display: flex;
+      gap: 3px;
+      align-items: flex-end;
+      height: 42px;
+    }
+    .s-bar {
+      flex: 1;
+      border-radius: 1px 1px 0 0;
+      transition: height 0.4s, background 0.4s;
+      min-height: 3px;
+    }
+    .s-bar.VERDE  { background: var(--verde-l); }
+    .s-bar.GIALLA { background: var(--gialla-l); }
+    .s-bar.ROSSA  { background: var(--rossa-l); }
+
+    .log-wrap {
+      border: 1px solid rgba(154,123,60,0.3);
+      background: #fff;
+      padding: 12px 14px;
+      min-height: 80px;
+    }
+    .log-line {
+      font-size: 0.53rem;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      line-height: 1.9;
+      border-bottom: 1px dashed rgba(154,123,60,0.15);
+      padding-bottom: 1px;
+    }
+    .log-line:last-child { border-bottom: none; }
+    .log-line .ts { opacity: 0.5; margin-right: 6px; }
+
+    @keyframes wallFlash {
+      0%,100% { background-color: var(--bg); }
+      50%      { background-color: #f0dada; }
+    }
+    body.alert-rossa { animation: wallFlash 0.8s ease-in-out infinite; }
+
+    footer {
+      margin-top: 22px;
+      font-size: 0.5rem;
+      letter-spacing: 0.24em;
+      color: var(--muted);
+      text-align: center;
+      opacity: 0.55;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Monitor di prossimità</h1>
+  <p>Sala IV · Opera n. 23 · Sistema attivo</p>
+</header>
+
+<div class="layout">
+  <canvas id="scena" width="560" height="500"></canvas>
+
+  <div class="side">
+
+    <div class="card">
+      <div class="card-label">Fascia corrente</div>
+      <div class="fascia-display" id="fasciaLabel">—</div>
+      <div class="fascia-sub"    id="fasciaSub">in attesa di dati…</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Distanza rilevata</div>
+      <div class="dist-big" id="distLabel">—</div>
+      <div class="dist-unit">centimetri</div>
+      <div class="gauge-wrap">
+        <div class="gauge-fill" id="gaugeFill" style="width:0%;background:var(--verde-l)"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Zone di sicurezza</div>
+      <div class="zone-list">
+        <div class="zone-row"><span class="zone-stripe r"></span>ROSSA  &lt; 40 cm</div>
+        <div class="zone-row"><span class="zone-stripe g"></span>GIALLA 40–80 cm</div>
+        <div class="zone-row"><span class="zone-stripe v"></span>VERDE  &gt; 80 cm</div>
+      </div>
+    </div>
+
+    <div class="storico-wrap">
+      <div class="card-label">Storico fasce</div>
+      <div class="storico-bars" id="storicoBars"></div>
+    </div>
+
+    <div class="log-wrap">
+      <div class="card-label">Registro eventi</div>
+      <div id="logLines"></div>
+    </div>
+
+  </div>
+</div>
+
+<footer>Live: /api/live · Storico: /api/dati · Aggiornamento 500 ms</footer>
+
+<script>
+  /* ════════════════════════════════════════════════
+     COSTANTI SCENA
+  ════════════════════════════════════════════════ */
+  const cv  = document.getElementById('scena');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+
+  // Layout verticale — il quadro è in alto, lo spettatore scende verso il basso
+  const PY = 40;   // top area quadro
+  const PH = 58;   // altezza area quadro (frame incluso)
+
+  const ZONE_TOP = PY + PH + 4;  // inizio zona sorvegliata (a ~0 cm)
+  const ZONE_BOT = H - 16;       // fondo canvas (distanza massima visualizzata)
+
+  // Soglie in cm (devono rispecchiare il backend)
+  const CM_ROSSA  = 40;
+  const CM_GIALLA = 80;
+  const CM_MAX    = 160; // distanza massima rappresentata (oltre = fondo scena)
+
+  /* Converte cm reali → coordinata Y sulla scena
+     0 cm  = appena sotto il quadro (ZONE_TOP)
+     CM_MAX = fondo canvas (ZONE_BOT)                          */
+  function cmToY(cm) {
+    const ratio = Math.min(cm, CM_MAX) / CM_MAX;
+    return ZONE_TOP + ratio * (ZONE_BOT - ZONE_TOP);
+  }
+
+  /* Coordinate Y delle soglie */
+  const Y_ROSSA  = cmToY(CM_ROSSA);   // confine rossa/gialla
+  const Y_GIALLA = cmToY(CM_GIALLA);  // confine gialla/verde
+
+  /* ── Trapezoid helper (zone si allargano in prospettiva) ── */
+  function trap(yTop, yBot) {
+    const totalH = ZONE_BOT - ZONE_TOP;
+    const r0 = (yTop - ZONE_TOP) / totalH;
+    const r1 = (yBot  - ZONE_TOP) / totalH;
+    const minW = 180, maxW = W - 40;
+    return {
+      tX: (W - (minW + (maxW - minW) * r0)) / 2,
+      tW:      minW + (maxW - minW) * r0,
+      bX: (W - (minW + (maxW - minW) * r1)) / 2,
+      bW:      minW + (maxW - minW) * r1,
+    };
+  }
+
+  function fillTrap(yTop, yBot, fillStyle) {
+    const { tX, tW, bX, bW } = trap(yTop, yBot);
+    ctx.beginPath();
+    ctx.moveTo(tX, yTop); ctx.lineTo(tX + tW, yTop);
+    ctx.lineTo(bX + bW, yBot); ctx.lineTo(bX, yBot);
+    ctx.closePath();
+    ctx.fillStyle = fillStyle;
+    ctx.fill();
+  }
+
+  function strokeTrapLine(y, col, dash) {
+    const { tX, tW } = trap(y, y);
+    ctx.save();
+    if (dash) ctx.setLineDash(dash);
+    ctx.beginPath();
+    ctx.moveTo(tX, y); ctx.lineTo(tX + tW, y);
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /* ════════════════════════════════════════════════
+     STATO ANIMAZIONE
+  ════════════════════════════════════════════════ */
+  let currentFascia   = 'VERDE';
+  let currentDistanza = CM_MAX;          // cm dal sensore
+  let visitorY        = cmToY(CM_MAX);   // y attuale (lerp)
+  let visitorYTgt     = cmToY(CM_MAX);   // y target
+  let pulse           = 0;
+
+  /* ════════════════════════════════════════════════
+     DRAW
+  ════════════════════════════════════════════════ */
+  function drawScene() {
+    ctx.clearRect(0, 0, W, H);
+
+    /* Sfondo parete */
+    const wallG = ctx.createLinearGradient(0, 0, 0, H);
+    wallG.addColorStop(0,   '#d8d0be');
+    wallG.addColorStop(0.3, '#e4dccb');
+    wallG.addColorStop(1,   '#ede5d2');
+    ctx.fillStyle = wallG;
+    ctx.fillRect(0, 0, W, H);
+
+    /* Vignette */
+    const vig = ctx.createRadialGradient(W/2, H*0.45, 80, W/2, H*0.45, W * 0.75);
+    vig.addColorStop(0, 'rgba(0,0,0,0)');
+    vig.addColorStop(1, 'rgba(0,0,0,0.12)');
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, W, H);
+
+    /* Linee prospettiche pavimento */
+    ctx.strokeStyle = 'rgba(120,100,60,0.07)';
+    ctx.lineWidth = 0.5;
+    const vpX = W / 2, vpY = PY + PH;
+    for (let i = 0; i <= 10; i++) {
+      ctx.beginPath();
+      ctx.moveTo(vpX, vpY);
+      ctx.lineTo((i / 10) * W, H);
+      ctx.stroke();
+    }
+
+    /* Pulsazione attiva */
+    pulse = (pulse + 0.035) % (Math.PI * 2);
+    const p = 0.03 + 0.02 * Math.sin(pulse);
+
+    /* ── Zone colorate (trapezi) ── */
+    fillTrap(ZONE_TOP, Y_ROSSA,
+      currentFascia === 'ROSSA'
+        ? `rgba(232,64,58,${0.20 + p})`
+        : 'rgba(232,64,58,0.09)');
+
+    fillTrap(Y_ROSSA, Y_GIALLA,
+      currentFascia === 'GIALLA'
+        ? `rgba(245,197,24,${0.20 + p})`
+        : 'rgba(245,197,24,0.10)');
+
+    fillTrap(Y_GIALLA, ZONE_BOT,
+      currentFascia === 'VERDE'
+        ? `rgba(61,220,132,${0.18 + p})`
+        : 'rgba(61,220,132,0.09)');
+
+    /* Bordi zone */
+    ctx.save();
+    const zBorders = [
+      [ZONE_TOP, Y_ROSSA,  'rgba(232,64,58,0.28)'],
+      [Y_ROSSA,  Y_GIALLA, 'rgba(245,197,24,0.28)'],
+      [Y_GIALLA, ZONE_BOT, 'rgba(61,220,132,0.22)'],
+    ];
+    zBorders.forEach(([yt, yb, col]) => {
+      const { tX, tW, bX, bW } = trap(yt, yb);
+      ctx.beginPath();
+      ctx.moveTo(tX, yt); ctx.lineTo(tX + tW, yt);
+      ctx.lineTo(bX + bW, yb); ctx.lineTo(bX, yb);
+      ctx.closePath();
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+    });
+    ctx.restore();
+
+    /* Linee soglia tratteggiate */
+    strokeTrapLine(Y_ROSSA,  'rgba(232,64,58,0.40)',  [5, 7]);
+    strokeTrapLine(Y_GIALLA, 'rgba(245,197,24,0.38)', [5, 7]);
+
+    /* Etichette zona + distanza soglia (sinistra) */
+    const zLabels = [
+      { text: 'ROSSA',  yMid: (ZONE_TOP + Y_ROSSA)  / 2, col: 'rgba(139,26,26,0.60)',  sub: '< 40 cm' },
+      { text: 'GIALLA', yMid: (Y_ROSSA  + Y_GIALLA) / 2, col: 'rgba(184,134,11,0.60)', sub: '40–80 cm' },
+      { text: 'VERDE',  yMid: (Y_GIALLA + ZONE_BOT)  / 2, col: 'rgba(45,122,79,0.55)',  sub: '> 80 cm' },
+    ];
+    zLabels.forEach(z => {
+      ctx.save();
+      ctx.font = '700 8px "Courier Prime", monospace';
+      ctx.fillStyle = z.col;
+      ctx.textAlign = 'left';
+      ctx.fillText(z.text, 14, z.yMid - 3);
+      ctx.font = '400 7px "Courier Prime", monospace';
+      ctx.fillText(z.sub,  14, z.yMid + 8);
+      ctx.strokeStyle = z.col;
+      ctx.lineWidth = 0.7;
+      ctx.beginPath();
+      ctx.moveTo(8, z.yMid); ctx.lineTo(3, z.yMid);
+      ctx.stroke();
+      ctx.restore();
+    });
+
+    /* ── Righello distanza (destra) ── */
+    const rulerX = W - 22;
+    const marks  = [0, 40, 80, 120, CM_MAX];
+    ctx.save();
+    ctx.strokeStyle = 'rgba(154,123,60,0.25)';
+    ctx.lineWidth   = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(rulerX, ZONE_TOP);
+    ctx.lineTo(rulerX, ZONE_BOT);
+    ctx.stroke();
+    marks.forEach(cm => {
+      const y = cmToY(cm);
+      ctx.beginPath();
+      ctx.moveTo(rulerX - 4, y);
+      ctx.lineTo(rulerX + 4, y);
+      ctx.stroke();
+      ctx.font      = '400 7px "Courier Prime", monospace';
+      ctx.fillStyle = 'rgba(120,100,60,0.50)';
+      ctx.textAlign = 'right';
+      ctx.fillText(`${cm}`, rulerX - 7, y + 3);
+    });
+    // indicatore mobile sul righello
+    const ry = cmToY(currentDistanza);
+    ctx.fillStyle = currentFascia === 'ROSSA'  ? 'rgba(232,64,58,0.8)'  :
+                    currentFascia === 'GIALLA' ? 'rgba(245,197,24,0.8)' : 'rgba(61,220,132,0.8)';
+    ctx.beginPath();
+    ctx.moveTo(rulerX + 6, ry);
+    ctx.lineTo(rulerX + 12, ry - 4);
+    ctx.lineTo(rulerX + 12, ry + 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    /* ── QUADRO ── */
+    const PW = 170, px = (W - PW) / 2;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.35)';
+    ctx.shadowBlur  = 22;
+    ctx.shadowOffsetY = 8;
+    ctx.shadowOffsetX = 3;
+    ctx.fillStyle = '#1e1408';
+    ctx.fillRect(px - 12, PY - 12, PW + 24, PH + 4);
+    ctx.restore();
+
+    ctx.strokeStyle = '#c9a84c';
+    ctx.lineWidth   = 2.5;
+    ctx.strokeRect(px - 12, PY - 12, PW + 24, PH + 4);
+    ctx.strokeStyle = 'rgba(201,168,76,0.35)';
+    ctx.lineWidth   = 0.8;
+    ctx.strokeRect(px - 6, PY - 6, PW + 12, PH - 8);
+
+    const cg = ctx.createLinearGradient(px, PY, px + PW, PY + PH);
+    cg.addColorStop(0,   '#1e1208');
+    cg.addColorStop(0.4, '#3a2810');
+    cg.addColorStop(0.8, '#4a3418');
+    cg.addColorStop(1,   '#2a1c08');
+    ctx.fillStyle = cg;
+    ctx.fillRect(px, PY, PW, PH - 14);
+
+    for (let i = 0; i < 7; i++) {
+      ctx.save();
+      ctx.strokeStyle = `rgba(201,168,76,${0.04 + i * 0.018})`;
+      ctx.lineWidth   = 4 + i * 1.5;
+      ctx.lineCap     = 'round';
+      ctx.beginPath();
+      ctx.moveTo(px + 8 + i * 22, PY + 5);
+      ctx.quadraticCurveTo(px + 18 + i * 22, PY + (PH - 14) / 2, px + 12 + i * 22, PY + PH - 20);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.fillStyle = '#c9a84c';
+    ctx.fillRect(px + PW/2 - 50, PY + PH - 8, 100, 13);
+    ctx.fillStyle = '#1a1814';
+    ctx.font = '500 7px "Courier Prime", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Opera n. 23 · Sala IV', px + PW/2, PY + PH + 2);
+
+    /* ── VISITATORE ── */
+    // lerp fluido
+    visitorY += (visitorYTgt - visitorY) * 0.07;
+
+    const vx = W / 2;
+    const vy = visitorY;
+
+    // scala in base alla profondità (prospettiva)
+    const depthR = Math.max(0, Math.min(1, (vy - ZONE_TOP) / (ZONE_BOT - ZONE_TOP)));
+    const sc = 0.52 + depthR * 0.60;
+
+    const hR = 11 * sc, bH = 30 * sc, bW = 14 * sc;
+    const lH = 22 * sc, aW = 12 * sc, aH = 18 * sc;
+
+    const vc = currentFascia === 'ROSSA'  ? '#7a1515' :
+               currentFascia === 'GIALLA' ? '#7a5c00' : '#1a4a30';
+    const vRgb = currentFascia === 'ROSSA'  ? '232,64,58'  :
+                 currentFascia === 'GIALLA' ? '245,197,24' : '61,220,132';
+
+    // ombra piedi
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(vx, vy + bH/2 + lH + 2, (bW + aW) * 0.75, 5 * sc, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.fill();
+    ctx.restore();
+
+    // aura
+    ctx.save();
+    const glow = ctx.createRadialGradient(vx, vy, 0, vx, vy, 52 * sc);
+    glow.addColorStop(0, `rgba(${vRgb},0.22)`);
+    glow.addColorStop(1, `rgba(${vRgb},0)`);
+    ctx.beginPath();
+    ctx.ellipse(vx, vy + bH * 0.2, 52 * sc, 58 * sc, 0, 0, Math.PI * 2);
+    ctx.fillStyle = glow;
+    ctx.fill();
+    ctx.restore();
+
+    ctx.fillStyle = vc;
+    // testa
+    ctx.beginPath();
+    ctx.arc(vx, vy - bH/2 - hR * 0.4, hR, 0, Math.PI * 2);
+    ctx.fill();
+    // corpo
+    ctx.beginPath();
+    ctx.roundRect(vx - bW/2, vy - bH/2, bW, bH, [3 * sc]);
+    ctx.fill();
+    // braccia
+    ctx.beginPath();
+    ctx.roundRect(vx - bW/2 - aW, vy - bH/2 + 3 * sc, aW, aH, [2 * sc]);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.roundRect(vx + bW/2, vy - bH/2 + 3 * sc, aW, aH, [2 * sc]);
+    ctx.fill();
+    // gambe
+    ctx.beginPath();
+    ctx.roundRect(vx - bW/2 + 1, vy + bH/2 - 2, bW/2 - 2, lH, [2 * sc]);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.roundRect(vx + 1, vy + bH/2 - 2, bW/2 - 2, lH, [2 * sc]);
+    ctx.fill();
+
+    /* linea tratteggiata quadro → visitatore */
+    ctx.save();
+    ctx.strokeStyle = `rgba(${vRgb},0.35)`;
+    ctx.lineWidth   = 0.8;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.moveTo(vx, PY + PH);
+    ctx.lineTo(vx, vy - bH/2 - hR * 1.6);
+    ctx.stroke();
+    ctx.restore();
+
+    /* badge distanza vicino al personaggio */
+    const bdText = `${Math.round(currentDistanza)} cm`;
+    ctx.font = '700 9px "Courier Prime", monospace';
+    const bdW = ctx.measureText(bdText).width + 12;
+    const bdX = vx + bW/2 + aW + 8;
+    const bdY = vy - 10;
+    ctx.fillStyle = vc;
+    ctx.fillRect(bdX, bdY, bdW, 17);
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'left';
+    ctx.fillText(bdText, bdX + 6, bdY + 12);
+  }
+
+  /* ════════════════════════════════════════════════
+     STORICO FASCE  (da /api/dati, identico all'originale)
+  ════════════════════════════════════════════════ */
+  const storicoBarsEl = document.getElementById('storicoBars');
+
+  function renderStorico(dati) {
+    storicoBarsEl.innerHTML = '';
+    dati.slice(-20).forEach(d => {
+      const div = document.createElement('div');
+      div.className = `s-bar ${d.fascia}`;
+      const v = d.fascia === 'ROSSA' ? 3 : d.fascia === 'GIALLA' ? 2 : 1;
+      div.style.height = `${(v / 3) * 42}px`;
+      storicoBarsEl.appendChild(div);
+    });
+  }
+
+  /* ════════════════════════════════════════════════
+     LOG
+  ════════════════════════════════════════════════ */
+  const logEl   = document.getElementById('logLines');
+  const logData = [];
+
+  function addLog(msg) {
+    const ts = new Date().toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    logData.unshift({ ts, msg });
+    if (logData.length > 4) logData.pop();
+    logEl.innerHTML = logData.map(l =>
+      `<div class="log-line"><span class="ts">${l.ts}</span>${l.msg}</div>`
+    ).join('');
+  }
+
+  /* ════════════════════════════════════════════════
+     UI PANEL
+  ════════════════════════════════════════════════ */
+  const fasciaLabel = document.getElementById('fasciaLabel');
+  const fasciaSub   = document.getElementById('fasciaSub');
+  const distLabel   = document.getElementById('distLabel');
+  const gaugeFill   = document.getElementById('gaugeFill');
+  let lastFascia = null;
+
+  function updatePanel(fascia, distanza) {
+    // Fascia
+    fasciaLabel.textContent = fascia;
+    fasciaLabel.className   = `fascia-display ${fascia}`;
+    fasciaSub.textContent   = fascia === 'ROSSA'  ? 'Distanza insufficiente' :
+                              fascia === 'GIALLA' ? 'Zona di attenzione' :
+                                                    'Distanza sicura';
+    // Distanza
+    if (distanza !== null && distanza !== undefined) {
+      distLabel.textContent = Math.round(distanza);
+      distLabel.className   = `dist-big ${fascia}`;
+      // gauge: piena a 0 cm, vuota a CM_MAX
+      const pct = Math.max(0, 100 - (Math.min(distanza, CM_MAX) / CM_MAX) * 100);
+      const gcol = fascia === 'ROSSA'  ? 'var(--rossa-l)'  :
+                   fascia === 'GIALLA' ? 'var(--gialla-l)' : 'var(--verde-l)';
+      gaugeFill.style.width      = `${pct}%`;
+      gaugeFill.style.background = gcol;
+    }
+
+    if (fascia !== lastFascia) {
+      const msg = fascia === 'ROSSA'  ? '⚠ ALLARME — zona rossa'     :
+                  fascia === 'GIALLA' ? '△ Ingresso zona gialla'      :
+                                        '✓ Zona sicura';
+      addLog(msg);
+      document.body.classList.toggle('alert-rossa', fascia === 'ROSSA');
+      lastFascia = fascia;
+    }
+  }
+
+  /* ════════════════════════════════════════════════
+     FALLBACK: centro zona quando distanza non disponibile
+  ════════════════════════════════════════════════ */
+  function distanzaDaFascia(fascia) {
+    if (fascia === 'ROSSA')  return 20;   // centro zona rossa  (0–40 cm)
+    if (fascia === 'GIALLA') return 60;   // centro zona gialla (40–80 cm)
+    return 110;                           // centro zona verde  (80–160 cm)
+  }
+
+  /* ════════════════════════════════════════════════
+     API CALLS
+  ════════════════════════════════════════════════ */
+
+  /* Prova /api/live (backend aggiornato) → fallback a /api/dati (backend originale).
+     In entrambi i casi legge la distanza reale se presente,
+     altrimenti usa il centro della fascia come approssimazione. */
+  let useLive = true;  // disabilitato automaticamente se dà 404
+
+  async function aggiornaLive() {
+    if (!useLive) return;
+    try {
+      const res = await fetch('/api/live');
+      if (!res.ok) { useLive = false; return; }   // 404 → disabilita
+      const live = await res.json();
+
+      if (live.distanza == null) return;
+      currentFascia   = live.fascia || currentFascia;
+      currentDistanza = live.distanza;
+      visitorYTgt     = cmToY(currentDistanza);
+      updatePanel(currentFascia, currentDistanza);
+    } catch (e) {
+      useLive = false;
+    }
+  }
+
+  /* /api/dati — identico all'originale, usato per storico
+     e come sorgente principale se /api/live non è disponibile */
+  async function aggiorna() {
+    try {
+      const res  = await fetch('/api/dati');
+      const dati = await res.json();
+      if (!Array.isArray(dati) || dati.length === 0) return;
+
+      // Storico sempre
+      renderStorico(dati);
+
+      // Stato corrente dall'ultimo documento
+      const ultimo = dati[dati.length - 1];
+      currentFascia = ultimo.fascia;
+
+      // Se /api/live non funziona, usa la distanza da /api/dati
+      // (presente se il backend è stato aggiornato, altrimenti fallback centro zona)
+      if (!useLive) {
+        const d = (ultimo.distanza != null) ? ultimo.distanza : distanzaDaFascia(ultimo.fascia);
+        currentDistanza = d;
+        visitorYTgt     = cmToY(d);
+        updatePanel(currentFascia, d);
+      }
+    } catch (e) {
+      console.warn('/api/dati non raggiungibile:', e);
+    }
+  }
+
+  /* ════════════════════════════════════════════════
+     LOOP ANIMAZIONE
+  ════════════════════════════════════════════════ */
+  function loop() {
+    drawScene();
+    requestAnimationFrame(loop);
+  }
+
+  addLog('▸ Sistema avviato');
+  loop();
+
+  aggiorna();
+  aggiornaLive();
+  setInterval(aggiorna,      1000);  // storico + fallback posizione: ogni secondo
+  setInterval(aggiornaLive,   500);  // live se disponibile: ogni 500 ms
+</script>
+</body>
+</html>
