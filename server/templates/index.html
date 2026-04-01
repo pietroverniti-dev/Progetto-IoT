@@ -76,7 +76,6 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.06), 0 8px 32px rgba(0,0,0,0.10);
     }
 
-    /* ── SIDE PANEL ── */
     .side {
       width: 220px;
       display: flex;
@@ -128,7 +127,6 @@
       font-family: 'Cormorant Garamond', serif;
     }
 
-    /* distanza numerica */
     .dist-big {
       font-family: 'Cormorant Garamond', serif;
       font-size: 2.4rem;
@@ -147,7 +145,6 @@
       margin-top: 3px;
     }
 
-    /* gauge bar */
     .gauge-wrap {
       margin-top: 10px;
       height: 6px;
@@ -265,9 +262,9 @@
     <div class="card">
       <div class="card-label">Zone di sicurezza</div>
       <div class="zone-list">
-        <div class="zone-row"><span class="zone-stripe r"></span>ROSSA  &lt; 40 cm</div>
-        <div class="zone-row"><span class="zone-stripe g"></span>GIALLA 40–80 cm</div>
-        <div class="zone-row"><span class="zone-stripe v"></span>VERDE  &gt; 80 cm</div>
+        <div class="zone-row"><span class="zone-stripe r"></span>ROSSA  &lt; 20 cm</div>
+        <div class="zone-row"><span class="zone-stripe g"></span>GIALLA 20–40 cm</div>
+        <div class="zone-row"><span class="zone-stripe v"></span>VERDE  &gt; 40 cm</div>
       </div>
     </div>
 
@@ -287,38 +284,29 @@
 <footer>Live: /api/live · Storico: /api/dati · Aggiornamento 500 ms</footer>
 
 <script>
-  /* ════════════════════════════════════════════════
-     COSTANTI SCENA
-  ════════════════════════════════════════════════ */
   const cv  = document.getElementById('scena');
   const ctx = cv.getContext('2d');
   const W = cv.width, H = cv.height;
 
-  // Layout verticale — il quadro è in alto, lo spettatore scende verso il basso
-  const PY = 40;   // top area quadro
-  const PH = 58;   // altezza area quadro (frame incluso)
+  const PY = 40;
+  const PH = 58;
 
-  const ZONE_TOP = PY + PH + 4;  // inizio zona sorvegliata (a ~0 cm)
-  const ZONE_BOT = H - 16;       // fondo canvas (distanza massima visualizzata)
+  const ZONE_TOP = PY + PH + 4;
+  const ZONE_BOT = H - 16;
 
-  // Soglie in cm (devono rispecchiare il backend)
-  const CM_ROSSA  = 40;
-  const CM_GIALLA = 80;
-  const CM_MAX    = 160; // distanza massima rappresentata (oltre = fondo scena)
+  /* ── SOGLIE ── */
+  const CM_ROSSA  = 20;
+  const CM_GIALLA = 40;
+  const CM_MAX    = 80;
 
-  /* Converte cm reali → coordinata Y sulla scena
-     0 cm  = appena sotto il quadro (ZONE_TOP)
-     CM_MAX = fondo canvas (ZONE_BOT)                          */
   function cmToY(cm) {
     const ratio = Math.min(cm, CM_MAX) / CM_MAX;
     return ZONE_TOP + ratio * (ZONE_BOT - ZONE_TOP);
   }
 
-  /* Coordinate Y delle soglie */
-  const Y_ROSSA  = cmToY(CM_ROSSA);   // confine rossa/gialla
-  const Y_GIALLA = cmToY(CM_GIALLA);  // confine gialla/verde
+  const Y_ROSSA  = cmToY(CM_ROSSA);
+  const Y_GIALLA = cmToY(CM_GIALLA);
 
-  /* ── Trapezoid helper (zone si allargano in prospettiva) ── */
   function trap(yTop, yBot) {
     const totalH = ZONE_BOT - ZONE_TOP;
     const r0 = (yTop - ZONE_TOP) / totalH;
@@ -354,22 +342,15 @@
     ctx.restore();
   }
 
-  /* ════════════════════════════════════════════════
-     STATO ANIMAZIONE
-  ════════════════════════════════════════════════ */
   let currentFascia   = 'VERDE';
-  let currentDistanza = CM_MAX;          // cm dal sensore
-  let visitorY        = cmToY(CM_MAX);   // y attuale (lerp)
-  let visitorYTgt     = cmToY(CM_MAX);   // y target
+  let currentDistanza = CM_MAX;
+  let visitorY        = cmToY(CM_MAX);
+  let visitorYTgt     = cmToY(CM_MAX);
   let pulse           = 0;
 
-  /* ════════════════════════════════════════════════
-     DRAW
-  ════════════════════════════════════════════════ */
   function drawScene() {
     ctx.clearRect(0, 0, W, H);
 
-    /* Sfondo parete */
     const wallG = ctx.createLinearGradient(0, 0, 0, H);
     wallG.addColorStop(0,   '#d8d0be');
     wallG.addColorStop(0.3, '#e4dccb');
@@ -377,14 +358,12 @@
     ctx.fillStyle = wallG;
     ctx.fillRect(0, 0, W, H);
 
-    /* Vignette */
     const vig = ctx.createRadialGradient(W/2, H*0.45, 80, W/2, H*0.45, W * 0.75);
     vig.addColorStop(0, 'rgba(0,0,0,0)');
     vig.addColorStop(1, 'rgba(0,0,0,0.12)');
     ctx.fillStyle = vig;
     ctx.fillRect(0, 0, W, H);
 
-    /* Linee prospettiche pavimento */
     ctx.strokeStyle = 'rgba(120,100,60,0.07)';
     ctx.lineWidth = 0.5;
     const vpX = W / 2, vpY = PY + PH;
@@ -395,11 +374,9 @@
       ctx.stroke();
     }
 
-    /* Pulsazione attiva */
     pulse = (pulse + 0.035) % (Math.PI * 2);
     const p = 0.03 + 0.02 * Math.sin(pulse);
 
-    /* ── Zone colorate (trapezi) ── */
     fillTrap(ZONE_TOP, Y_ROSSA,
       currentFascia === 'ROSSA'
         ? `rgba(232,64,58,${0.20 + p})`
@@ -415,7 +392,6 @@
         ? `rgba(61,220,132,${0.18 + p})`
         : 'rgba(61,220,132,0.09)');
 
-    /* Bordi zone */
     ctx.save();
     const zBorders = [
       [ZONE_TOP, Y_ROSSA,  'rgba(232,64,58,0.28)'],
@@ -434,15 +410,13 @@
     });
     ctx.restore();
 
-    /* Linee soglia tratteggiate */
     strokeTrapLine(Y_ROSSA,  'rgba(232,64,58,0.40)',  [5, 7]);
     strokeTrapLine(Y_GIALLA, 'rgba(245,197,24,0.38)', [5, 7]);
 
-    /* Etichette zona + distanza soglia (sinistra) */
     const zLabels = [
-      { text: 'ROSSA',  yMid: (ZONE_TOP + Y_ROSSA)  / 2, col: 'rgba(139,26,26,0.60)',  sub: '< 40 cm' },
-      { text: 'GIALLA', yMid: (Y_ROSSA  + Y_GIALLA) / 2, col: 'rgba(184,134,11,0.60)', sub: '40–80 cm' },
-      { text: 'VERDE',  yMid: (Y_GIALLA + ZONE_BOT)  / 2, col: 'rgba(45,122,79,0.55)',  sub: '> 80 cm' },
+      { text: 'ROSSA',  yMid: (ZONE_TOP + Y_ROSSA)  / 2, col: 'rgba(139,26,26,0.60)',  sub: '< 20 cm' },
+      { text: 'GIALLA', yMid: (Y_ROSSA  + Y_GIALLA) / 2, col: 'rgba(184,134,11,0.60)', sub: '20–40 cm' },
+      { text: 'VERDE',  yMid: (Y_GIALLA + ZONE_BOT)  / 2, col: 'rgba(45,122,79,0.55)',  sub: '> 40 cm' },
     ];
     zLabels.forEach(z => {
       ctx.save();
@@ -460,9 +434,8 @@
       ctx.restore();
     });
 
-    /* ── Righello distanza (destra) ── */
     const rulerX = W - 22;
-    const marks  = [0, 40, 80, 120, CM_MAX];
+    const marks  = [0, 20, 40, 60, CM_MAX];
     ctx.save();
     ctx.strokeStyle = 'rgba(154,123,60,0.25)';
     ctx.lineWidth   = 0.8;
@@ -481,7 +454,6 @@
       ctx.textAlign = 'right';
       ctx.fillText(`${cm}`, rulerX - 7, y + 3);
     });
-    // indicatore mobile sul righello
     const ry = cmToY(currentDistanza);
     ctx.fillStyle = currentFascia === 'ROSSA'  ? 'rgba(232,64,58,0.8)'  :
                     currentFascia === 'GIALLA' ? 'rgba(245,197,24,0.8)' : 'rgba(61,220,132,0.8)';
@@ -493,7 +465,6 @@
     ctx.fill();
     ctx.restore();
 
-    /* ── QUADRO ── */
     const PW = 170, px = (W - PW) / 2;
     ctx.save();
     ctx.shadowColor = 'rgba(0,0,0,0.35)';
@@ -538,14 +509,11 @@
     ctx.textAlign = 'center';
     ctx.fillText('Opera n. 23 · Sala IV', px + PW/2, PY + PH + 2);
 
-    /* ── VISITATORE ── */
-    // lerp fluido
     visitorY += (visitorYTgt - visitorY) * 0.07;
 
     const vx = W / 2;
     const vy = visitorY;
 
-    // scala in base alla profondità (prospettiva)
     const depthR = Math.max(0, Math.min(1, (vy - ZONE_TOP) / (ZONE_BOT - ZONE_TOP)));
     const sc = 0.52 + depthR * 0.60;
 
@@ -557,7 +525,6 @@
     const vRgb = currentFascia === 'ROSSA'  ? '232,64,58'  :
                  currentFascia === 'GIALLA' ? '245,197,24' : '61,220,132';
 
-    // ombra piedi
     ctx.save();
     ctx.beginPath();
     ctx.ellipse(vx, vy + bH/2 + lH + 2, (bW + aW) * 0.75, 5 * sc, 0, 0, Math.PI * 2);
@@ -565,7 +532,6 @@
     ctx.fill();
     ctx.restore();
 
-    // aura
     ctx.save();
     const glow = ctx.createRadialGradient(vx, vy, 0, vx, vy, 52 * sc);
     glow.addColorStop(0, `rgba(${vRgb},0.22)`);
@@ -577,22 +543,18 @@
     ctx.restore();
 
     ctx.fillStyle = vc;
-    // testa
     ctx.beginPath();
     ctx.arc(vx, vy - bH/2 - hR * 0.4, hR, 0, Math.PI * 2);
     ctx.fill();
-    // corpo
     ctx.beginPath();
     ctx.roundRect(vx - bW/2, vy - bH/2, bW, bH, [3 * sc]);
     ctx.fill();
-    // braccia
     ctx.beginPath();
     ctx.roundRect(vx - bW/2 - aW, vy - bH/2 + 3 * sc, aW, aH, [2 * sc]);
     ctx.fill();
     ctx.beginPath();
     ctx.roundRect(vx + bW/2, vy - bH/2 + 3 * sc, aW, aH, [2 * sc]);
     ctx.fill();
-    // gambe
     ctx.beginPath();
     ctx.roundRect(vx - bW/2 + 1, vy + bH/2 - 2, bW/2 - 2, lH, [2 * sc]);
     ctx.fill();
@@ -600,7 +562,6 @@
     ctx.roundRect(vx + 1, vy + bH/2 - 2, bW/2 - 2, lH, [2 * sc]);
     ctx.fill();
 
-    /* linea tratteggiata quadro → visitatore */
     ctx.save();
     ctx.strokeStyle = `rgba(${vRgb},0.35)`;
     ctx.lineWidth   = 0.8;
@@ -611,7 +572,6 @@
     ctx.stroke();
     ctx.restore();
 
-    /* badge distanza vicino al personaggio */
     const bdText = `${Math.round(currentDistanza)} cm`;
     ctx.font = '700 9px "Courier Prime", monospace';
     const bdW = ctx.measureText(bdText).width + 12;
@@ -624,9 +584,6 @@
     ctx.fillText(bdText, bdX + 6, bdY + 12);
   }
 
-  /* ════════════════════════════════════════════════
-     STORICO FASCE  (da /api/dati, identico all'originale)
-  ════════════════════════════════════════════════ */
   const storicoBarsEl = document.getElementById('storicoBars');
 
   function renderStorico(dati) {
@@ -640,9 +597,6 @@
     });
   }
 
-  /* ════════════════════════════════════════════════
-     LOG
-  ════════════════════════════════════════════════ */
   const logEl   = document.getElementById('logLines');
   const logData = [];
 
@@ -655,9 +609,6 @@
     ).join('');
   }
 
-  /* ════════════════════════════════════════════════
-     UI PANEL
-  ════════════════════════════════════════════════ */
   const fasciaLabel = document.getElementById('fasciaLabel');
   const fasciaSub   = document.getElementById('fasciaSub');
   const distLabel   = document.getElementById('distLabel');
@@ -665,17 +616,14 @@
   let lastFascia = null;
 
   function updatePanel(fascia, distanza) {
-    // Fascia
     fasciaLabel.textContent = fascia;
     fasciaLabel.className   = `fascia-display ${fascia}`;
     fasciaSub.textContent   = fascia === 'ROSSA'  ? 'Distanza insufficiente' :
                               fascia === 'GIALLA' ? 'Zona di attenzione' :
                                                     'Distanza sicura';
-    // Distanza
     if (distanza !== null && distanza !== undefined) {
       distLabel.textContent = Math.round(distanza);
       distLabel.className   = `dist-big ${fascia}`;
-      // gauge: piena a 0 cm, vuota a CM_MAX
       const pct = Math.max(0, 100 - (Math.min(distanza, CM_MAX) / CM_MAX) * 100);
       const gcol = fascia === 'ROSSA'  ? 'var(--rossa-l)'  :
                    fascia === 'GIALLA' ? 'var(--gialla-l)' : 'var(--verde-l)';
@@ -693,31 +641,20 @@
     }
   }
 
-  /* ════════════════════════════════════════════════
-     FALLBACK: centro zona quando distanza non disponibile
-  ════════════════════════════════════════════════ */
   function distanzaDaFascia(fascia) {
-    if (fascia === 'ROSSA')  return 20;   // centro zona rossa  (0–40 cm)
-    if (fascia === 'GIALLA') return 60;   // centro zona gialla (40–80 cm)
-    return 110;                           // centro zona verde  (80–160 cm)
+    if (fascia === 'ROSSA')  return 10;
+    if (fascia === 'GIALLA') return 30;
+    return 55;
   }
 
-  /* ════════════════════════════════════════════════
-     API CALLS
-  ════════════════════════════════════════════════ */
-
-  /* Prova /api/live (backend aggiornato) → fallback a /api/dati (backend originale).
-     In entrambi i casi legge la distanza reale se presente,
-     altrimenti usa il centro della fascia come approssimazione. */
-  let useLive = true;  // disabilitato automaticamente se dà 404
+  let useLive = true;
 
   async function aggiornaLive() {
     if (!useLive) return;
     try {
       const res = await fetch('/api/live');
-      if (!res.ok) { useLive = false; return; }   // 404 → disabilita
+      if (!res.ok) { useLive = false; return; }
       const live = await res.json();
-
       if (live.distanza == null) return;
       currentFascia   = live.fascia || currentFascia;
       currentDistanza = live.distanza;
@@ -728,23 +665,14 @@
     }
   }
 
-  /* /api/dati — identico all'originale, usato per storico
-     e come sorgente principale se /api/live non è disponibile */
   async function aggiorna() {
     try {
       const res  = await fetch('/api/dati');
       const dati = await res.json();
       if (!Array.isArray(dati) || dati.length === 0) return;
-
-      // Storico sempre
       renderStorico(dati);
-
-      // Stato corrente dall'ultimo documento
       const ultimo = dati[dati.length - 1];
       currentFascia = ultimo.fascia;
-
-      // Se /api/live non funziona, usa la distanza da /api/dati
-      // (presente se il backend è stato aggiornato, altrimenti fallback centro zona)
       if (!useLive) {
         const d = (ultimo.distanza != null) ? ultimo.distanza : distanzaDaFascia(ultimo.fascia);
         currentDistanza = d;
@@ -756,9 +684,6 @@
     }
   }
 
-  /* ════════════════════════════════════════════════
-     LOOP ANIMAZIONE
-  ════════════════════════════════════════════════ */
   function loop() {
     drawScene();
     requestAnimationFrame(loop);
@@ -769,8 +694,8 @@
 
   aggiorna();
   aggiornaLive();
-  setInterval(aggiorna,      1000);  // storico + fallback posizione: ogni secondo
-  setInterval(aggiornaLive,   500);  // live se disponibile: ogni 500 ms
+  setInterval(aggiorna,      500);
+  setInterval(aggiornaLive,   0);
 </script>
 </body>
 </html>
