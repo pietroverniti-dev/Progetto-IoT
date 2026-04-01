@@ -26,9 +26,9 @@ collection = db[COLLECTION_NAME]
 fascia_corrente = None
 
 def calcola_fascia(distanza):
-    if distanza < 40:
+    if distanza < 20:
         return "ROSSA"
-    elif distanza < 80:
+    elif distanza < 40:
         return "GIALLA"
     else:
         return "VERDE"

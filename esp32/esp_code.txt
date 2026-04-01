@@ -3,7 +3,6 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <MD_MAX72xx.h>
 
 #include <WiFi.h>
 #include <PubSubClient.h>
@@ -34,21 +33,11 @@ const char* topic_distanza = "radar/distanza";
 Adafruit_SSD1306 display(COL, ROW, &Wire, OLED_RST);
 
 // ---------------------------------------------------------
-// MATRICE LED
-// ---------------------------------------------------------
-#define HARDWARE_TYPE MD_MAX72XX::FC16_HW
-#define MAX_DEVICES 1
-#define DATA_PIN 23
-#define CS_PIN   5
-#define CLK_PIN  18
-MD_MAX72XX mx = MD_MAX72XX(HARDWARE_TYPE, DATA_PIN, CLK_PIN, CS_PIN, MAX_DEVICES);
-
-// ---------------------------------------------------------
 // SENSORE ULTRASUONI + BUZZER
 // ---------------------------------------------------------
-const int TRIG_PIN = 4;
-const int ECHO_PIN = 2;
-const int BUZZER_PIN = 25;
+const int TRIG_PIN = 13;
+const int ECHO_PIN = 12;
+const int BUZZER_PIN = 14;
 
 unsigned long tempoBeep = 0;
 bool notaAlta = false;
@@ -94,26 +83,6 @@ void aggiornaOLED(int dist) {
 }
 
 // ---------------------------------------------------------
-// MATRICE LED
-// ---------------------------------------------------------
-void disegnaMatrice(int livello, bool panico) {
-  mx.clear();
-  if (livello <= 0) return;
-
-  int sR = panico ? random(-1, 2) : 0;
-  int sC = panico ? random(-1, 2) : 0;
-
-  int start = 4 - (livello / 2 + (livello % 2));
-  int end = 7 - start;
-
-  for (int r = start; r <= end; r++) {
-    for (int c = start; c <= end; c++) {
-      mx.setPoint(r + sR, c + sC, true);
-    }
-  }
-}
-
-// ---------------------------------------------------------
 // SETUP
 // ---------------------------------------------------------
 void setup() {
@@ -133,7 +102,7 @@ void setup() {
   display.setCursor(0,0);
 
   // ---------------------------------------------------------
-  // CONNESSIONE WIFI — COME IL TUO ESEMPIO
+  // CONNESSIONE WIFI
   // ---------------------------------------------------------
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
@@ -170,11 +139,6 @@ void setup() {
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
   pinMode(BUZZER_PIN, OUTPUT);
-
-  // Matrice
-  mx.begin();
-  mx.control(MD_MAX72XX::INTENSITY, 1);
-  mx.clear();
 }
 
 // ---------------------------------------------------------
@@ -211,15 +175,12 @@ void loop() {
   aggiornaOLED(distanza);
 
   // ---------------------------------------------------------
-  // LOGICA RADAR
+  // LOGICA BUZZER
   // ---------------------------------------------------------
   if (distanza > 50) {
-    disegnaMatrice(0, false);
     noTone(BUZZER_PIN);
   }
   else if (distanza < 8) {
-    disegnaMatrice(8, true);
-
     if (millis() - tempoBeep > 100) {
       notaAlta = !notaAlta;
       tone(BUZZER_PIN, notaAlta ? 1500 : 900);
@@ -227,9 +188,6 @@ void loop() {
     }
   }
   else {
-    int liv = map(distanza, 50, 8, 1, 7);
-    disegnaMatrice(liv, false);
-
     int p = map(distanza, 8, 50, 50, 500);
     if (millis() - tempoBeep > p) {
       tone(BUZZER_PIN, 1000, 20);
