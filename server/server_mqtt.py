@@ -1,9 +1,14 @@
-from flask import Flask, jsonify, render_template
+from datetime import datetime
 from pymongo import MongoClient
+import paho.mqtt.client as mqtt
 
 # ------------------------------
 # CONFIG
 # ------------------------------
+MQTT_BROKER = "127.0.0.1"
+MQTT_PORT = 1883
+MQTT_TOPIC = "radar/distanza"
+
 MONGO_URL = "mongodb://127.0.0.1:27017"
 DB_NAME = "radarDB"
 COLLECTION_NAME = "fasce"
@@ -16,35 +21,55 @@ db = mongo[DB_NAME]
 collection = db[COLLECTION_NAME]
 
 # ------------------------------
-# FLASK
+# LOGICA FASCE
 # ------------------------------
-app = Flask(__name__)
+fascia_corrente = None
 
-@app.route("/")
-def index():
-    return render_template("index.html")
+def calcola_fascia(distanza):
+    if distanza < 20:
+        return "ROSSA"
+    elif distanza < 40:
+        return "GIALLA"
+    else:
+        return "VERDE"
 
-@app.route("/api/dati")
-def api_dati():
-    dati = list(collection.find().sort("timestamp", -1).limit(200))
-    for d in dati:
-        d["_id"] = str(d["_id"])
-    return jsonify(dati[::-1])
+# ------------------------------
+# MQTT CALLBACKS
+# ------------------------------
+def on_connect(client, userdata, flags, rc):
+    print("MQTT connesso con codice:", rc)
+    client.subscribe(MQTT_TOPIC)
 
-@app.route("/api/live")
-def api_live():
-    """Ultimo documento in DB: distanza e fascia più recenti."""
-    ultimo = collection.find_one(sort=[("timestamp", -1)])
-    if ultimo is None:
-        return jsonify({"distanza": None, "fascia": None})
-    return jsonify({
-        "distanza": ultimo["distanza"],
-        "fascia": ultimo["fascia"]
-    })
+def on_message(client, userdata, msg):
+    global fascia_corrente
+
+    try:
+        distanza = int(msg.payload.decode())
+    except ValueError:
+        print("Valore non valido:", msg.payload)
+        return
+
+    nuova_fascia = calcola_fascia(distanza)
+
+    # Salva SOLO se cambia fascia
+    if nuova_fascia != fascia_corrente:
+        fascia_corrente = nuova_fascia
+        doc = {
+            "fascia": nuova_fascia,
+            "distanza": distanza,
+            "timestamp": datetime.now()
+        }
+        collection.insert_one(doc)
+        print("CAMBIO FASCIA:", doc)
 
 # ------------------------------
 # MAIN
 # ------------------------------
 if __name__ == "__main__":
-    print("Server web attivo su http://localhost:5000")
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    client = mqtt.Client()
+    client.on_connect = on_connect
+    client.on_message = on_message
+
+    client.connect(MQTT_BROKER, MQTT_PORT, 60)
+    print("Server MQTT in ascolto su", MQTT_TOPIC)
+    client.loop_forever()
